@@ -114,6 +114,8 @@ CPStampCategory *read_file (char *file) {
 	}
 	
 	abierta = (CPStampCategory *) malloc (sizeof (CPStampCategory));
+	abierta->total_stamps = 0;
+	abierta->earned_stamps = 0;
 	
 	if (abierta == NULL) {
 		goto error_close;
@@ -342,6 +344,9 @@ CPStampCategory *read_file (char *file) {
 			last->sig = s;
 		}
 		
+		abierta->total_stamps++;
+		if (s->ganada) abierta->earned_stamps++;
+		
 		last = s;
 	}
 	
@@ -429,9 +434,8 @@ static void sort_category (CPStampCategory **lista) {
 	p->sig = NULL;
 }
 
-void read_all_files (void) {
+void stamp_read_all_files (CPStampCategory **listas) {
 	/* Crear listas ligadas por cada "tipo" */
-	CPStampCategory *listas[NUM_STAMP_TYPE];
 	CPStampCategory *read;
 	char buf[4096];
 	DIR *stamp_dir;

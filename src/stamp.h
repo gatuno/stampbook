@@ -23,6 +23,8 @@
 #ifndef __STAMP_H__
 #define __STAMP_H__
 
+#include <SDL.h>
+
 /* Define las posibles categorías para la estampa */
 enum {
 	STAMP_TYPE_ACTIVITY = 0,
@@ -44,12 +46,13 @@ typedef struct _CPStamp {
 	int id;
 	char *titulo;
 	char *descripcion;
-	char *imagen;
 	
 	int categoria;
 	int dificultad;
 	
 	int ganada;
+	
+	SDL_Surface *image;
 	
 	struct _CPStamp *sig;
 } CPStamp;
@@ -66,10 +69,19 @@ typedef struct _CPStampCategory {
 	
 	char *resource_dir;
 	
+	int total_stamps;
+	int earned_stamps;
+	
+	/* Objetos SDL para desplegar la categoría */
+	SDL_Surface *titulo;
+	SDL_Surface *background_page;
+	
+	SDL_Surface *icon_big, *icon_small;
+	
 	struct _CPStampCategory *sig;
 } CPStampCategory;
 
-void read_all_files (void);
+void stamp_read_all_files (CPStampCategory **listas);
 
 #endif /* __STAMP_H__ */
 

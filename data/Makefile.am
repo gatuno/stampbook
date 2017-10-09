@@ -4,6 +4,10 @@ nobase_dist_gamedata_DATA = \
 	images/portada_negra.png \
 	images/clasp.png \
 	images/clasp_thumb_1.png \
+	images/base_page.png \
+	images/page_close_down.png \
+	images/page_close_over.png \
+	images/page_close_up.png \
 	burbanksb.ttf
 
 # Instalar los archivos .desktop e iconos

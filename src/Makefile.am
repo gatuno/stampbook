@@ -6,6 +6,8 @@ bin_PROGRAMS = stampbook
 stampbook_SOURCES = book.c \
 	path.c path.h \
 	stamp.c stamp.h \
+	page.c page.h \
+	cp-button.c cp-button.h \
 	draw-text.c draw-text.h
 
 if MINGW32

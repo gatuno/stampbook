@@ -39,8 +39,12 @@
 #include "path.h"
 
 #include "draw-text.h"
+#include "stamp.h"
+#include "page.h"
+#include "cp-button.h"
 
 #define FPS (1000/24)
+#define MAX_RECTS 256
 
 /* Enumerar las imágenes */
 enum {
@@ -48,13 +52,25 @@ enum {
 	
 	IMG_CLASP,
 	
+	IMG_PAGE_BASE,
+	
+	IMG_PAGE_BUTTON_CLOSE_UP,
+	IMG_PAGE_BUTTON_CLOSE_OVER,
+	IMG_PAGE_BUTTON_CLOSE_DOWN,
+	
 	NUM_IMAGES
 };
 
 /* Los nombres de archivos */
 const char *images_names[NUM_IMAGES] = {
 	"images/portada_negra.png",
-	"images/clasp.png"
+	"images/clasp.png",
+	
+	"images/base_page.png",
+	
+	"images/page_close_up.png",
+	"images/page_close_over.png",
+	"images/page_close_down.png"
 };
 
 enum {
@@ -74,16 +90,32 @@ enum {
 	GAME_QUIT
 };
 
+enum {
+	BUTTON_NONE = 0,
+	BUTTON_PAGE_CLOSE,
+	
+	BUTTON_PREV,
+	BUTTON_NEXT,
+	
+	NUM_BUTTONS
+};
+
 /* Prototipos de función */
 int book_portada (void);
 int game_loop (void);
 int game_finish (void);
 void setup (void);
 SDL_Surface * set_video_mode(unsigned flags);
+int map_button_in_page (int x, int y);
+void add_rect(SDL_Rect *rect);
 
 /* Variables globales */
 SDL_Surface * screen;
 SDL_Surface * images[NUM_IMAGES];
+SDL_Rect rects[MAX_RECTS];
+int num_rects = 0;
+int whole_flip = 0;
+
 int use_sound;
 
 Mix_Chunk * sounds[NUM_SOUNDS];
@@ -103,12 +135,19 @@ int main (int argc, char *argv[]) {
 	
 	setup ();
 	
-	read_all_files ();
+	generate_pages ();
+	
+	/* Registrar botones */
+	cp_registrar_botones (NUM_BUTTONS);
+	cp_registrar_boton (BUTTON_PAGE_CLOSE, IMG_PAGE_BUTTON_CLOSE_UP);
+	//cp_registrar_boton (BUTTON_NEXT, IMG_BUTTON_1_UP);
+	//cp_registrar_boton (BUTTON_PREV, IMG_BUTTON_1_UP);
+	cp_button_start ();
 	
 	do {
 		if (book_portada () == GAME_QUIT) break;
-		/*if (game_loop () == GAME_QUIT) break;
-		if (game_finish () == GAME_QUIT) break;*/
+		if (game_loop () == GAME_QUIT) break;
+		/*if (game_finish () == GAME_QUIT) break;*/
 	} while (1 == 0);
 	
 	SDL_Quit ();
@@ -310,6 +349,7 @@ int book_portada (void) {
 	return done;
 }
 
+#if 0
 int game_finish (void) {
 	int done = 0;
 	SDL_Event event;
@@ -318,7 +358,6 @@ int game_finish (void) {
 	Uint32 last_time, now_time;
 	
 	/* Predibujar todo */
-	SDL_FillRect (screen, NULL, 0);
 	SDL_Flip (screen);
 	
 	do {
@@ -360,6 +399,7 @@ int game_finish (void) {
 	
 	return done;
 }
+#endif
 
 int game_loop (void) {
 	int done = 0;
@@ -367,9 +407,27 @@ int game_loop (void) {
 	SDLKey key;
 	Uint32 last_time, now_time;
 	SDL_Rect rect;
+	int map;
+	
+	BookPage *current_page;
+	
+	current_page = get_pages ();
+	
+	num_rects = 0;
 	
 	/* Predibujar todo */
-	SDL_FillRect (screen, NULL, 0);
+	SDL_FillRect (screen, NULL, SDL_MapRGB (screen->format, 255, 255, 255));
+	
+	SDL_BlitSurface (images[IMG_PAGE_BASE], NULL, screen, NULL);
+	
+	/* Dibujar el botón de cierre de página */
+	rect.x = 665;
+	rect.y = 23;
+	rect.w = images[IMG_PAGE_BUTTON_CLOSE_UP]->w;
+	rect.h = images[IMG_PAGE_BUTTON_CLOSE_UP]->h;
+	
+	SDL_BlitSurface (images[IMG_PAGE_BUTTON_CLOSE_UP], NULL, screen, &rect);
+	
 	SDL_Flip (screen);
 	
 	do {
@@ -381,11 +439,23 @@ int game_loop (void) {
 					/* Vamos a cerrar la aplicación */
 					done = GAME_QUIT;
 					break;
+				case SDL_MOUSEMOTION:
+					map = map_button_in_page (event.motion.x, event.motion.y);
+					cp_button_motion (map);
+					break;
 				case SDL_MOUSEBUTTONDOWN:
-					/* Tengo un Mouse Down */
+					map = map_button_in_page (event.button.x, event.button.y);
+					cp_button_down (map);
 					break;
 				case SDL_MOUSEBUTTONUP:
-					/* Tengo un mouse Up */
+					map = map_button_in_page (event.button.x, event.button.y);
+					map = cp_button_up (map);
+					
+					switch (map) {
+						case BUTTON_PAGE_CLOSE:
+							done = GAME_QUIT;
+							break;
+					}
 					break;
 				case SDL_KEYDOWN:
 					/* Tengo una tecla presionada */
@@ -401,11 +471,32 @@ int game_loop (void) {
 			}
 		}
 		
-		SDL_Flip (screen);
+		if (cp_button_refresh [BUTTON_PAGE_CLOSE]) {
+			/* Dibujar el botón de cierre de página */
+			rect.x = 665;
+			rect.y = 23;
+			rect.w = images[IMG_PAGE_BUTTON_CLOSE_UP]->w;
+			rect.h = images[IMG_PAGE_BUTTON_CLOSE_UP]->h;
+			
+			SDL_FillRect (screen, &rect, SDL_MapRGB (screen->format, 255, 255, 255));
+			SDL_BlitSurface (images[IMG_PAGE_BASE], &rect, screen, &rect);
+			
+			SDL_BlitSurface (images[cp_button_frames [BUTTON_PAGE_CLOSE]], NULL, screen, &rect);
+			
+			add_rect (&rect);
+			cp_button_refresh [BUTTON_PAGE_CLOSE] = 0;
+		}
+		
+		if (whole_flip) {
+			whole_flip = 0;
+			SDL_Flip (screen);
+		} else {
+			SDL_UpdateRects (screen, num_rects, rects);
+			num_rects = 0;
+		}
 		
 		now_time = SDL_GetTicks ();
 		if (now_time < last_time + FPS) SDL_Delay(last_time + FPS - now_time);
-		
 	} while (!done);
 	
 	return done;
@@ -559,3 +650,21 @@ void setup (void) {
 	srand (SDL_GetTicks ());
 }
 
+int map_button_in_page (int x, int y) {
+	int punto;
+	punto = ((y - 9) * 85) / 141;
+	if (y >= 9 && y < 150 && x >= 645 + punto && x < 730) return BUTTON_PAGE_CLOSE;
+	//if (x >= 324 && x < 421 && y >= 382 && y < 411) return BUTTON_START;
+	//if (x >= 663 && x < 692 && y >= 24 && y < 53) return BUTTON_CLOSE;
+	return BUTTON_NONE;
+}
+
+void add_rect(SDL_Rect *rect) {
+	if (whole_flip) return;
+	if (num_rects + 1 > MAX_RECTS) {
+		whole_flip = 1;
+		return;
+	} else {
+		rects [num_rects++] = *rect;
+	}
+}
