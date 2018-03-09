@@ -119,9 +119,11 @@ int whole_flip = 0;
 int use_sound;
 
 Mix_Chunk * sounds[NUM_SOUNDS];
-Mix_Music * mus_carnie;
+//Mix_Music * mus_carnie;
 
-TTF_Font *ttf54_burbank_bold, *ttf14_burbank_bold;
+TTF_Font *ttf54_burbank_bold, *ttf14_burbank_bold, *ttf12_burbank_bold;
+TTF_Font *ttf30_burbank_bold;
+//TTF_Font *ttf25_burbank_bold;
 
 int main (int argc, char *argv[]) {
 	/* Recuperar las rutas del sistema */
@@ -305,6 +307,11 @@ int book_portada (void) {
 	rect.h = nick_color->h;
 	SDL_BlitSurface (nick_color, NULL, screen, &rect);
 	
+	SDL_FreeSurface (nick_color);
+	SDL_FreeSurface (nick_negro);
+	SDL_FreeSurface (nick_trans);
+	
+	
 	SDL_Flip (screen);
 	
 	do {
@@ -401,6 +408,112 @@ int game_finish (void) {
 }
 #endif
 
+void book_render_page_index (BookPage *page) {
+	SDL_Rect rect;
+	int total_cats;
+	IndexItem *item;
+	int start;
+	int cols = 3;
+	
+	/* Predibujar todo */
+	SDL_FillRect (screen, NULL, SDL_MapRGB (screen->format, 255, 255, 255));
+	
+	SDL_BlitSurface (images[IMG_PAGE_BASE], NULL, screen, NULL);
+	
+	/* Predibujar el fondo correspondiente a esta página */
+	rect.x = 18;
+	rect.y = 21;
+	rect.w = page->index->background->w;
+	rect.h = page->index->background->h;
+	
+	SDL_BlitSurface (page->index->background, NULL, screen, &rect);
+	
+	/* Intentar dibujar el ícono de la categoría */
+	rect.x = 91;
+	rect.y = 42;
+	rect.w = page->index->icon->w;
+	rect.h = page->index->icon->h;
+	
+	SDL_BlitSurface (page->index->icon, NULL, screen, &rect);
+	
+	/* Dibujar el título del índice */
+	rect.x = 147;
+	rect.y = 50;
+	rect.w = page->index->img_titulo->w;
+	rect.h = page->index->img_titulo->h;
+	
+	SDL_BlitSurface (page->index->img_titulo, NULL, screen, &rect);
+	
+	/* Contar todas las categorias que hay */
+	total_cats = 0;
+	item = page->index->items;
+	while (item != NULL) {
+		total_cats++;
+		
+		item = item->next;
+	}
+	
+	/*
+	static var RENDERER_WIDTH = 164;
+    static var RENDERER_HEIGHT = 30;
+    static var LIST_PADDING = 15;
+    static var LIST_WIDTH = 545;
+    static var LIST_HEIGHT = 225;
+    */
+	
+	/* TODO: Seleccionar y habilitar cuántas categorias mostrar */
+	start = 0;
+	item = page->index->items;
+	while (start < 15 && item != NULL) {
+		//_loc2.move(_loc3 % _numberOfColumns * _rendererPaddedWidth + _rendererWidth / 2, Math.floor(_loc3 / _numberOfColumns) * _rendererPaddedHeight + _rendererHeight / 2);
+		// X = (start % cols) * 179 + 82
+		// Y = (start / cols) * 45 + 15;
+		
+		// Category, X:15, Y:14
+		rect.x = 93 + ((start % cols) * 179);
+		rect.y = 107 + ((start / cols) * 45);
+		rect.w = item->icon->w;
+		rect.h = item->icon->h;
+		
+		SDL_BlitSurface (item->icon, NULL, screen, &rect);
+		
+		// Texto, X:34.25, Y:5.60
+		rect.x = 93 + ((start % cols) * 179) + 34;
+		rect.y = 107 + ((start / cols) * 45) + 8;
+		rect.w = item->img_titulo->w;
+		rect.h = item->img_titulo->h;
+		
+		SDL_BlitSurface (item->img_titulo, NULL, screen, &rect);
+		
+		start++;
+		item = item->next;
+	}
+}
+
+void book_render_page_stamps (BookPage *page) {
+	SDL_Rect rect;
+	/* Predibujar todo */
+	SDL_FillRect (screen, NULL, SDL_MapRGB (screen->format, 255, 255, 255));
+	
+	SDL_BlitSurface (images[IMG_PAGE_BASE], NULL, screen, NULL);
+	
+	/* Predibujar el fondo correspondiente a esta página */
+	rect.x = 18;
+	rect.y = 21;
+	rect.w = page->group_stamps->background->w;
+	rect.h = page->group_stamps->background->h;
+	
+	SDL_BlitSurface (page->group_stamps->background, NULL, screen, &rect);
+	
+	/* Intentar dibujar el ícono de la categoría */
+	rect.x = 91;
+	rect.y = 42;
+	rect.w = page->group_stamps->icon->w;
+	rect.h = page->group_stamps->icon->h;
+	
+	SDL_BlitSurface (page->group_stamps->icon, NULL, screen, &rect);
+}
+
 int game_loop (void) {
 	int done = 0;
 	SDL_Event event;
@@ -413,12 +526,21 @@ int game_loop (void) {
 	
 	current_page = get_pages ();
 	
+	// Acomodar temporalmente la página actual en un juego
+	/*while (current_page->next != NULL && current_page->tipo == PAGE_GAME) {
+		current_page = current_page->next;
+	}*/
+	
+	/* Y movernos temporalmente a la primer página después del indice */
+	//current_page = current_page->next;
+	
 	num_rects = 0;
 	
-	/* Predibujar todo */
-	SDL_FillRect (screen, NULL, SDL_MapRGB (screen->format, 255, 255, 255));
-	
-	SDL_BlitSurface (images[IMG_PAGE_BASE], NULL, screen, NULL);
+	if (current_page->tipo == PAGE_INDEX) {
+		book_render_page_index (current_page);
+	} else {
+		book_render_page_stamps (current_page);
+	}
 	
 	/* Dibujar el botón de cierre de página */
 	rect.x = 665;
@@ -514,7 +636,8 @@ SDL_Surface * set_video_mode (unsigned flags) {
 
 void setup (void) {
 	SDL_Surface * image;
-	TTF_Font *ttf10, *ttf14, *ttf16, *ttf26, *temp_font;
+	SDL_RWops *ttf_burbank_sb;
+	
 	SDL_Color color;
 	SDL_Rect rect, rect2;
 	int g;
@@ -623,25 +746,35 @@ void setup (void) {
 	}
 	
 	sprintf (buffer_file, "%s%s", systemdata_path, "burbanksb.ttf");
-	ttf54_burbank_bold = TTF_OpenFont (buffer_file, 54);
+	ttf_burbank_sb = SDL_RWFromFile(buffer_file, "rb");
 	
-	if (!ttf54_burbank_bold) {
+	if (ttf_burbank_sb == NULL) {
 		fprintf (stderr,
 			_("Failed to load font file 'Burbank Small Bold'\n"
 			"The error returned by SDL is:\n"
-			"%s\n"), TTF_GetError ());
+			"%s\n"), SDL_GetError ());
 		SDL_Quit ();
 		exit (1);
 	}
 	
-	sprintf (buffer_file, "%s%s", systemdata_path, "burbanksb.ttf");
-	ttf14_burbank_bold = TTF_OpenFont (buffer_file, 14);
+	SDL_RWseek (ttf_burbank_sb, 0, RW_SEEK_SET);
+	ttf54_burbank_bold = TTF_OpenFontRW (ttf_burbank_sb, 0, 54);
 	
-	if (!ttf14_burbank_bold) {
-		fprintf (stderr,
-			_("Failed to load font file 'Burbank Small Bold'\n"
-			"The error returned by SDL is:\n"
-			"%s\n"), TTF_GetError ());
+	SDL_RWseek (ttf_burbank_sb, 0, RW_SEEK_SET);
+	ttf14_burbank_bold = TTF_OpenFontRW (ttf_burbank_sb, 0, 14);
+	
+	SDL_RWseek (ttf_burbank_sb, 0, RW_SEEK_SET);
+	ttf12_burbank_bold = TTF_OpenFontRW (ttf_burbank_sb, 0, 12);
+	
+	if (!ttf54_burbank_bold || !ttf14_burbank_bold || !ttf12_burbank_bold) {
+		SDL_Quit ();
+		exit (1);
+	}
+	
+	SDL_RWseek (ttf_burbank_sb, 0, RW_SEEK_SET);
+	ttf30_burbank_bold = TTF_OpenFontRW (ttf_burbank_sb, 1, 30);
+	
+	if (!ttf30_burbank_bold) {
 		SDL_Quit ();
 		exit (1);
 	}

@@ -57,8 +57,8 @@ typedef struct _CPStamp {
 	struct _CPStamp *sig;
 } CPStamp;
 
-typedef struct _CPStampCategory {
-	char *nombre;
+typedef struct _CPStampGroup {
+	char *titulo;
 	int categoria;
 	
 	CPStamp *lista;
@@ -73,15 +73,15 @@ typedef struct _CPStampCategory {
 	int earned_stamps;
 	
 	/* Objetos SDL para desplegar la categoría */
-	SDL_Surface *titulo;
-	SDL_Surface *background_page;
+	SDL_Surface *img_titulo;
+	SDL_Surface *background;
 	
-	SDL_Surface *icon_big, *icon_small;
+	SDL_Surface *icon;
 	
-	struct _CPStampCategory *sig;
-} CPStampCategory;
+	struct _CPStampGroup *sig;
+} CPStampGroup;
 
-void stamp_read_all_files (CPStampCategory **listas);
+void stamp_read_all_files (CPStampGroup **listas);
 
 #endif /* __STAMP_H__ */
 

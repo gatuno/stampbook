@@ -1,5 +1,5 @@
 /*
- * page.h
+ * book.h
  * This file is part of Stampbook
  *
  * Copyright (C) 2017 - Félix Arreola Rodríguez
@@ -20,53 +20,14 @@
  * Boston, MA  02110-1301  USA
  */
 
-#ifndef __PAGE_H__
-#define __PAGE_H__
+#ifndef __BOOK_H__
+#define __BOOK_H__
 
 #include <SDL.h>
+#include <SDL_ttf.h>
 
-#include "stamp.h"
+extern TTF_Font *ttf12_burbank_bold;
+extern TTF_Font *ttf30_burbank_bold;
 
-enum {
-	PAGE_FULL_INDEX = 1,
-	PAGE_INDEX,
-	PAGE_GAME
-};
-
-typedef struct _BookIndex BookIndex;
-
-typedef struct _BookPage {
-	int tipo;
-	
-	int categoria;
-	CPStampGroup *group_stamps;
-	BookIndex *index;
-	
-	struct _BookPage *prev, *next;
-} BookPage;
-
-typedef struct _IndexItem {
-	char *titulo;
-	SDL_Surface *img_titulo;
-	SDL_Surface *icon;
-	BookPage *link;
-	
-	struct _IndexItem *next;
-} IndexItem;
-
-struct _BookIndex {
-	char *titulo;
-	SDL_Surface *img_titulo;
-	SDL_Surface *icon;
-	
-	SDL_Surface *background;
-	
-	IndexItem *items;
-};
-
-void generate_pages (void);
-BookPage *get_pages (void);
-
-
-#endif /* __PAGE_H__ */
+#endif /* __BOOK_H__ */
 

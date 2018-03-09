@@ -30,6 +30,14 @@
 #include <fcntl.h>
 #include <dirent.h>
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <locale.h>
+#include "gettext.h"
+#define _(string) gettext (string)
+
 #include "stamp.h"
 #include "path.h"
 
@@ -59,20 +67,24 @@ static int compare_stamp (const void *a, const void *b) {
 		}
 	}
 }
-static void sort_stamps (CPStampCategory *cat) {
+static void sort_stamps (CPStampGroup *group) {
 	int total = 0, g;
 	CPStamp **lista, *p;
 	
-	p = cat->lista;
+	p = group->lista;
 	
 	while (p != NULL) {
 		total++;
 		p = p->sig;
 	}
 	
+	if (total <= 1) {
+		return;
+	}
+	
 	lista = (CPStamp **) malloc (sizeof (CPStamp *) * total);
 	
-	p = cat->lista;
+	p = group->lista;
 	
 	g = 0;
 	while (p != NULL) {
@@ -84,10 +96,10 @@ static void sort_stamps (CPStampCategory *cat) {
 	qsort (lista, total, sizeof (CPStamp *), compare_stamp);
 	
 	/* Religar la lista */
-	cat->lista = lista[0];
+	group->lista = lista[0];
 	
 	g = 0;
-	p = cat->lista;
+	p = group->lista;
 	while (g < total - 1) {
 		p->sig = lista[g + 1];
 		p = lista[g + 1];
@@ -97,9 +109,9 @@ static void sort_stamps (CPStampCategory *cat) {
 	p->sig = NULL;
 }
 
-CPStampCategory *read_file (char *file) {
+CPStampGroup *read_file (char *file) {
 	int fd;
-	CPStampCategory *abierta;
+	CPStampGroup *abierta;
 	uint32_t temp, version;
 	int n_stampas;
 	int res;
@@ -113,7 +125,7 @@ CPStampCategory *read_file (char *file) {
 		return NULL;
 	}
 	
-	abierta = (CPStampCategory *) malloc (sizeof (CPStampCategory));
+	abierta = (CPStampGroup *) malloc (sizeof (CPStampGroup));
 	abierta->total_stamps = 0;
 	abierta->earned_stamps = 0;
 	
@@ -161,14 +173,14 @@ CPStampCategory *read_file (char *file) {
 		res = read (fd, buf, temp * sizeof (char));
 		
 		if (buf[0] != 0) {
-			abierta->nombre = strdup (buf);
+			abierta->titulo = strdup (buf);
 		} else {
-			abierta->nombre = strdup ("");
+			abierta->titulo = strdup ("");
 		}
 	} else {
 		/* Brincar el nombre, de igual forma, no debería ser tan largo */
 		lseek (fd, temp, SEEK_CUR);
-		abierta->nombre = strdup ("");
+		abierta->titulo = strdup ("");
 	}
 	
 	/* Leer el dominio de traducción */
@@ -359,7 +371,7 @@ error_free2:
 	free (abierta->l10n_domain);
 	
 error_free1:
-	free (abierta->nombre);
+	free (abierta->titulo);
 	
 error_free:
 	free (abierta);
@@ -370,8 +382,8 @@ error_close:
 	return NULL;
 }
 
-CPStampCategory *append_to_list (CPStampCategory *inicio, CPStampCategory *elemento) {
-	CPStampCategory *p;
+CPStampGroup *append_group_to_list (CPStampGroup *inicio, CPStampGroup *elemento) {
+	CPStampGroup *p;
 	
 	elemento->sig = NULL;
 	
@@ -390,16 +402,16 @@ CPStampCategory *append_to_list (CPStampCategory *inicio, CPStampCategory *eleme
 	return inicio;
 }
 
-static int compare_category (const void *a, const void *b) {
-	const CPStampCategory *left = (const CPStampCategory *) a;
-	const CPStampCategory *right = (const CPStampCategory *) b;
+static int compare_stamp_group (const void *a, const void *b) {
+	const CPStampGroup *left = (const CPStampGroup *) a;
+	const CPStampGroup *right = (const CPStampGroup *) b;
 	
-	return strcmp (left->nombre, right->nombre);
+	return strcmp (left->titulo, right->titulo);
 }
 
-static void sort_category (CPStampCategory **lista) {
+static void sort_group_list (CPStampGroup **lista) {
 	int total, g;
-	CPStampCategory **arr, *p;
+	CPStampGroup **arr, *p;
 	
 	total = 0;
 	p = *lista;
@@ -408,7 +420,9 @@ static void sort_category (CPStampCategory **lista) {
 		p = p->sig;
 	}
 	
-	arr = (CPStampCategory **) malloc (sizeof (CPStampCategory *) * total);
+	if (total <= 1) return;
+	
+	arr = (CPStampGroup **) malloc (sizeof (CPStampGroup *) * total);
 	
 	p = *lista;
 	g = 0;
@@ -418,7 +432,7 @@ static void sort_category (CPStampCategory **lista) {
 		g++;
 	}
 	
-	qsort (arr, total, sizeof (CPStampCategory *), compare_category);
+	qsort (arr, total, sizeof (CPStampGroup *), compare_stamp_group);
 	
 	/* Religar toda la lista */
 	*lista = arr[0];
@@ -434,9 +448,9 @@ static void sort_category (CPStampCategory **lista) {
 	p->sig = NULL;
 }
 
-void stamp_read_all_files (CPStampCategory **listas) {
+void stamp_read_all_files (CPStampGroup **listas) {
 	/* Crear listas ligadas por cada "tipo" */
-	CPStampCategory *read;
+	CPStampGroup *read;
 	char buf[4096];
 	DIR *stamp_dir;
 	struct dirent *objeto;
@@ -462,10 +476,21 @@ void stamp_read_all_files (CPStampCategory **listas) {
 				continue;
 			}
 			
+			/* Configurar el bindtextdomain para estas estampas */
+			if (read->l10n_domain != NULL &&
+			    read->l10n_domain[0] != 0 &&
+			    read->l10n_dir != NULL &&
+			    read->l10n_dir[0] != 0) {
+				bindtextdomain (read->l10n_domain, read->l10n_dir);
+			}
+			
+			/* Reacomodar el título para que se ordene bien */
+			read->titulo = dgettext (read->l10n_domain, read->titulo);
+			
 			sort_stamps (read);
 			
 			/* Agregar a la lista ligada local */
-			listas[read->categoria] = append_to_list (listas[read->categoria], read);
+			listas[read->categoria] = append_group_to_list (listas[read->categoria], read);
 		}
 	}
 	
@@ -475,7 +500,7 @@ void stamp_read_all_files (CPStampCategory **listas) {
 	g = 0;
 	while (g < NUM_STAMP_TYPE) {
 		if (listas[g] != NULL) {
-			sort_category (&listas[g]);
+			sort_group_list (&listas[g]);
 		}
 		g++;
 	}

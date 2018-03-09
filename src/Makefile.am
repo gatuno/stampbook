@@ -3,7 +3,7 @@
 gamedatadir = $(pkgdatadir)/data
 
 bin_PROGRAMS = stampbook
-stampbook_SOURCES = book.c \
+stampbook_SOURCES = book.c book.h \
 	path.c path.h \
 	stamp.c stamp.h \
 	page.c page.h \
